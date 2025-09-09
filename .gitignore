@@ -1,0 +1,60 @@
+# Node modules
+node_modules/
+
+# Build output
+.next/
+out/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# dotenv environment variables
+.env*
+!.env.example
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# VS Code settings (optional)
+.vscode/
+
+# TypeScript build files
+*.tsbuildinfo
+
+# Optional: Ignore coverage reports
+coverage/
+
+# Optional: Ignore logs and caches
+.cache/
+.next/cache/
+
+# Optional: Ignore IDE files
+.idea/
+*.swp
+
+# Optional: Ignore test snapshots
+__snapshots__/
+
+# Optional: Ignore local development SSL certs
+*.pem
+
+# Optional: Ignore TurboRepo/Monorepo specific files
+turbo/
+
+# Optional: Tailwind/JIT cache
+.tailwind
+
+# Optional: Ignore lock files (only if you're not committing them)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
