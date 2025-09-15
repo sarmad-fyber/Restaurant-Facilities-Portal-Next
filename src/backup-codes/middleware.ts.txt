@@ -1,0 +1,65 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+// Define which roles are allowed for specific path prefixes.
+// More specific paths should come first if there's an overlap,
+// but the logic below handles that by finding the longest match.
+const pageRoles: { [key: string]: string[] } = {
+  "/restaurant/create": ["admin"],
+  "/dashboard": ["admin", "manager", "staff", "contractor", "supervisor"],
+};
+
+// 🔹 Normalize for comparison
+const normalize = (s: string) => s.trim().toLowerCase();
+
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // 1. Get user role from cookie
+  const rawCookie = request.cookies.get("userRole")?.value ?? "";
+  const userRole = normalize(decodeURIComponent(rawCookie));
+  const isLoggedIn = !!userRole;
+
+  // --- LOGGED-IN USERS ---
+  if (isLoggedIn) {
+    // ✅ If logged-in user goes to "/" or "/login" → send to dashboard
+    if (pathname === "/" || pathname === "/login") {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    // ✅ Check if the path is protected
+    const protectedPath = Object.keys(pageRoles)
+      .sort((a, b) => b.length - a.length) // longest match wins
+      .find((p) => pathname.startsWith(p));
+
+    if (protectedPath) {
+      const requiredRoles = pageRoles[protectedPath].map(normalize);
+      if (!requiredRoles.includes(userRole)) {
+        // ❌ Role not allowed → Unauthorized page
+        return NextResponse.redirect(new URL("/unauthorized", request.url));
+      }
+    }
+
+    // ✅ Otherwise, allow
+    return NextResponse.next();
+  }
+
+  // --- NOT LOGGED-IN USERS ---
+  if (!isLoggedIn) {
+    const isProtected = Object.keys(pageRoles).some((p) =>
+      pathname.startsWith(p)
+    );
+
+    if (isProtected) {
+      // ❌ Not logged in → go to root
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+
+    // ✅ Public route → allow
+    return NextResponse.next();
+  }
+}
+
+export const config = {
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+};

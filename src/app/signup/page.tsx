@@ -3,138 +3,116 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { VscLock } from 'react-icons/vsc';
+
+// Firebase imports
+import { auth, db } from '@/lib/firebase'; // Ensure this path is correct
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function SignupPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState('Staff'); // Default role
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isAccountCreated, setIsAccountCreated] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
-    setSuccess('');
 
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/wp/v2/users`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            username: email, // Using email as username for simplicity and uniqueness
-            name: name,
-            email: email,
-            password: password,
-            // NOTE: The 'roles' parameter is often ignored by the default WP API for unauthenticated requests.
-            // New users will be created with the default role ('Subscriber').
-            // Assigning custom roles requires an authenticated request or a custom plugin in WordPress.
-          }),
-        }
-      );
+      // Create user in Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
 
-      const data = await response.json();
+      // Save user data (including the selected role) into Firestore
+      await setDoc(doc(db, 'users', user.uid), {
+        name,
+        email,
+        role,
+        createdAt: serverTimestamp(),
+      });
 
-      if (!response.ok) {
-        // WordPress returns a 'message' in the JSON response for errors
-        throw new Error(data.message || 'An error occurred during sign up.');
-      }
-
-      // If signup is successful
-      setSuccess('Account created successfully! Redirecting to login...');
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000); // Wait 2 seconds before redirecting
-
+      setIsAccountCreated(true);
     } catch (err: any) {
-      setError(err.message);
+      console.error('Signup error:', err.message);
+      if (err.code === 'auth/email-already-in-use') {
+        setError('This email address is already in use.');
+      } else {
+        setError('Failed to create an account. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800">Create an Account</h1>
-          <p className="text-gray-500 mt-2">Join us and get started</p>
+    <div className="min-h-screen flex flex-col md:flex-row font-sans">
+      {/* Left Panel */}
+      <div className="w-full md:w-2/5 bg-[#DD0031] flex flex-col justify-center items-center text-white p-8 md:p-12 text-center">
+        {/* Your branding content here */}
+      </div>
+
+      {/* Right Panel */}
+      <div className="w-full md:w-3/5 flex flex-col justify-center items-center bg-white p-8 md:p-12">
+        <div className="w-full max-w-sm">
+          {!isAccountCreated ? (
+            <div>
+              <div className="text-center mb-10">
+                <h1 className="text-3xl font-bold text-[#DD0031]">Create Account</h1>
+                <p className="text-gray-500 mt-2">Fill in your details to get started.</p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {error && <div className="bg-red-100 text-red-700 p-3 rounded-lg">{error}</div>}
+
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Full Name" required className="w-full p-3 border rounded-lg" />
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email Address" required className="w-full p-3 border rounded-lg" />
+                
+                <div>
+                   <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">Select Role</label>
+                   <select id="role" value={role} onChange={(e) => setRole(e.target.value)} required className="w-full p-3 border rounded-lg bg-white">
+                    <option value="Staff">Staff</option>
+                    <option value="Manager">Manager</option>
+                    <option value="Supervisor">Supervisor</option>
+                    <option value="Contractor">Contractor</option>
+                    <option value="Admin">Admin</option>
+                  </select>
+                </div>
+                
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" required className="w-full p-3 border rounded-lg" />
+                <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm Password" required className="w-full p-3 border rounded-lg" />
+
+                <button type="submit" disabled={loading} className="w-full p-3 rounded-lg text-lg font-semibold text-white bg-[#DD0031] hover:bg-red-700 disabled:bg-red-400">
+                  {loading ? 'Creating...' : 'Create Account'}
+                </button>
+              </form>
+
+              <p className="text-center mt-6 text-sm text-gray-500">
+                Already have an account? <Link href="/" className="font-bold text-red-600 hover:underline">Log In</Link>
+              </p>
+            </div>
+          ) : (
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-[#DD0031]">Success!</h1>
+              <p className="text-gray-500 my-4">Your account has been created.</p>
+              <Link href="/" className="w-full inline-block p-3 rounded-lg text-lg font-semibold text-white bg-[#DD0031] hover:bg-red-700">
+                Go to Login
+              </Link>
+            </div>
+          )}
         </div>
-        <form onSubmit={handleSubmit}>
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4" role="alert">
-              <span className="block sm:inline">{error}</span>
-            </div>
-          )}
-          {success && (
-            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg relative mb-4" role="alert">
-              <span className="block sm:inline">{success}</span>
-            </div>
-          )}
-          <div className="mb-5">
-            <label htmlFor="name" className="block mb-2 text-sm font-medium text-gray-700">
-              Full Name
-            </label>
-            <input
-              type="text"
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-200"
-              placeholder="John Doe"
-              required
-            />
-          </div>
-          <div className="mb-5">
-            <label htmlFor="email" className="block mb-2 text-sm font-medium text-gray-700">
-              Email Address
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-200"
-              placeholder="you@example.com"
-              required
-            />
-          </div>
-          <div className="mb-6">
-            <label htmlFor="password" className="block mb-2 text-sm font-medium text-gray-700">
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-200"
-              placeholder="Create a strong password"
-              required
-            />
-          </div>
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200 disabled:bg-indigo-400 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Creating Account...' : 'Sign Up'}
-            </button>
-          </div>
-        </form>
-        <p className="text-sm text-center text-gray-500 mt-8">
-          Already have an account?{' '}
-          <Link href="/" className="font-medium text-indigo-600 hover:text-indigo-500 transition duration-200">
-            Log in
-          </Link>
-        </p>
       </div>
     </div>
   );
