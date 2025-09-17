@@ -1,172 +1,81 @@
-'use client'
+"use client";
 
-import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { VscMail, VscLock } from 'react-icons/vsc'
-import { signInWithEmailAndPassword, onAuthStateChanged, User } from 'firebase/auth'
-import { auth } from '@/lib/firebase'
-
-const LoadingSpinner = () => (
-  <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-  </svg>
-)
-
-function LoginForm() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isCheckingSession, setIsCheckingSession] = useState(true)
-
-  const router = useRouter()
-  const searchParams = useSearchParams()
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
-      if (user) {
-        router.replace('/dashboard')
-      } else {
-        setIsCheckingSession(false)
-      }
-    })
-    return () => unsubscribe()
-  }, [router])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    setError('')
-    try {
-      const cred = await signInWithEmailAndPassword(auth, email, password)
-
-      // temporary hardcoded role, replace with role from Firebase custom claims or DB
-      const role = 'admin'
-
-      // set cookie via API
-      await fetch('/api/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role }),
-      })
-
-      const from = searchParams.get('from')
-      router.replace(from || '/dashboard')
-    } catch (err: any) {
-      setError('Invalid email or password provided.')
-      setIsSubmitting(false)
-    }
-  }
-
-  if (isCheckingSession) {
-    return (
-      <div className="min-h-screen flex justify-center items-center">
-        <p className="text-lg text-gray-600">Loading Session...</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen flex flex-col md:flex-row font-sans">
-      <div className="w-full md:w-2/5 bg-[#DD0031] flex flex-col justify-center items-center text-white p-8 md:p-12 text-center">
-        <div className="py-12 md:py-0">
-          <div className="flex flex-col items-center gap-y-10 mb-12 md:mb-16">
-            <img src="/images/logo/logo.png" alt="Logo" className="w-48 h-auto" />
-            <img src="/images/logo/logo2.png" alt="Icon" className="w-40 h-auto" />
-          </div>
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">An original then, an original now</h2>
-        </div>
-      </div>
-      <div className="w-full md:w-3/5 flex flex-col justify-center items-center bg-white p-8 md:p-12 relative">
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-10">
-            <h1 className="text-2xl md:text-3xl font-bold text-[#DD0031] mb-3">Welcome Back!</h1>
-            <p className="text-gray-500 tracking-widest text-sm font-light">LOG IN TO CONTINUE</p>
-          </div>
-          <form onSubmit={handleSubmit}>
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4" role="alert">
-                {error}
-              </div>
-            )}
-            <fieldset disabled={isSubmitting} className="space-y-4">
-              <div className="relative">
-                <VscMail className="absolute top-1/2 left-4 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                  placeholder="example@email.com"
-                  required
-                />
-              </div>
-              <div className="relative">
-                <VscLock className="absolute top-1/2 left-4 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-16 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                  placeholder="**********"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-xs font-bold text-gray-500"
-                >
-                  {showPassword ? 'HIDE' : 'SHOW'}
-                </button>
-              </div>
-            </fieldset>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`w-full flex items-center py-3 px-6 rounded-lg text-lg font-semibold text-white bg-[#DD0031] hover:bg-red-700 transition cursor-pointer disabled:bg-red-400 disabled:cursor-wait mt-6 ${
-                isSubmitting ? 'justify-center' : 'justify-between'
-              }`}
-            >
-              {isSubmitting ? (
-                <LoadingSpinner />
-              ) : (
-                <>
-                  <span>Proceed to my Account</span>
-                  <span className="font-light text-2xl">→</span>
-                </>
-              )}
-            </button>
-          </form>
-          <div className="text-center mt-8 space-y-3">
-            <p className="text-sm text-gray-600">
-              Don&apos;t have an account?{' '}
-              <Link href="/signup" className="font-semibold text-red-600 hover:underline">
-                Create an account
-              </Link>
-            </p>
-            <Link href="/forgot-password" className="text-sm text-cyan-600 hover:underline">
-              Forgot your Password?
-            </Link>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex justify-center items-center">
-          <p className="text-lg text-gray-600">Loading...</p>
-        </div>
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Login failed");
       }
-    >
-      <LoginForm />
-    </Suspense>
-  )
+
+      // ✅ Success: cookie is already set, redirect
+      router.push("/dashboard");
+    } catch (err: any) {
+      console.error("Login error:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-center h-screen bg-gray-100 px-4">
+      <form
+        onSubmit={handleLogin}
+        className="bg-white p-8 rounded-lg shadow-md w-full max-w-md"
+      >
+        <h1 className="text-2xl font-bold mb-6 text-center">Sign In</h1>
+
+        {error && <p className="text-red-600 mb-4">{error}</p>}
+
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full mb-3 px-3 py-2 border rounded"
+          required
+        />
+
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full mb-6 px-3 py-2 border rounded"
+          required
+        />
+
+        <button
+          type="submit"
+          disabled={loading}
+          className={`w-full bg-red-600 text-white py-2 rounded hover:bg-red-700 ${
+            loading ? "opacity-60 cursor-not-allowed" : ""
+          }`}
+        >
+          {loading ? "Signing in..." : "Sign In"}
+        </button>
+      </form>
+    </div>
+  );
 }
